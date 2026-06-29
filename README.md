@@ -143,3 +143,6 @@ curl -N -X POST localhost:3300/v1/chat/completions \
 装 `extension/`（sub2org-worker）扩展到指纹浏览器，设置页填 `sub2org 服务地址` + `Worker Token` +
 `账号标签` + `Provider`，点连接；该浏览器需已登录对应 ChatGPT/Claude。之后对 sub2org
 发 OpenAI 请求即可由该账号的网页会话作答。
+
+# linuxdo
+- [linuxdo](https://linux.do)
