@@ -1,0 +1,58 @@
+# sub2org 单实例部署：postgres + 中转 server + nginx(托管 console + 反代 API)。
+# 用法见 ../docs/DEPLOY.md。先 `cp .env.example .env` 并填好，再 `cp ../server/config.example.toml config.toml` 调整。
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: sub2org
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: sub2org
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sub2org"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sub2org:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    environment:
+      SUB2ORG_ENV: prod
+      SUB2ORG_BIND: 0.0.0.0:3300
+      SUB2ORG_DATABASE_URL: postgres://sub2org:${POSTGRES_PASSWORD}@postgres:5432/sub2org
+      SUB2ORG_JWT_SECRET: ${SUB2ORG_JWT_SECRET}
+      SUB2ORG_ADMIN_TOKEN: ${SUB2ORG_ADMIN_TOKEN}
+      SUB2ORG_ADMIN_PASSWORD: ${SUB2ORG_ADMIN_PASSWORD}
+      SUB2ORG_PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      SUB2ORG_EPAY_PID: ${SUB2ORG_EPAY_PID:-}
+      SUB2ORG_EPAY_KEY: ${SUB2ORG_EPAY_KEY:-}
+      SUB2ORG_SMTP_PASSWORD: ${SUB2ORG_SMTP_PASSWORD:-}
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    ports:
+      - "80:80"
+      # - "443:443"   # 出证后启用（见 nginx.conf 的 https 块 + ./certs 挂载）
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./ext:/usr/share/nginx/ext:ro   # 自托管 CRX + updates.xml（规模化 worker 自动更新）
+    depends_on:
+      - sub2org
+    restart: unless-stopped
+
+volumes:
+  pgdata:

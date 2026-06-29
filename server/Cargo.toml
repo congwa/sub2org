@@ -1,0 +1,43 @@
+[package]
+name = "sub2org"
+version = "0.1.0"
+edition = "2021"
+description = "中转控制中心 — pooled relay for browser-driven ChatGPT/Claude workers"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+socketioxide = "0.16"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures = "0.3"
+async-stream = "0.3"
+dashmap = "6"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+thiserror = "2"
+toml = "0.8"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "derive", "json"] }
+async-trait = "0.1"
+sha2 = "0.10"
+hex = "0.4"
+argon2 = "0.5"
+jsonwebtoken = "9"
+rand = "0.8"
+md-5 = "0.10"
+base64 = "0.22"  # 图片 base64 编码（URL fetch 归一为 data URI）；已在 lockfile（reqwest 传递）
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
+# 告警 webhook 用；复用项目已有的 ring（不引 aws-lc-rs / cmake），provider 在启动时显式安装。
+# webpki-roots 内置 Mozilla CA（no-provider 不带根证书，缺它则 https webhook 一律握手失败）。
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-webpki-roots-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# TOTP 两步验证：纯 Rust（sha1/sha2/hmac/base32），不引 url/idna/openssl/aws-lc。
+totp-rs = { version = "5", default-features = false, features = ["gen_secret"] }
+
+[profile.dev]
+opt-level = 0

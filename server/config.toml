@@ -1,0 +1,82 @@
+# sub2org 配置
+# 监听地址
+bind = "0.0.0.0:3300"
+
+# Postgres 连接串（M2）。注释掉 = 用内存 store（dev）。
+# ⚠️ 内存模式重启会丢失全部用户/API key/会话/计费/审计 → 客户端(如 Cherry)会报「key 失效需换新」。
+# 对外运营务必启用 Postgres。
+# database_url = "postgres://postgres:postgres@localhost:5432/sub2org"
+
+# 续接会话但其 worker 离线时：true=故障转移到其它 worker 开新窗，false=报 409。
+failover_on_offline = false
+
+# worker 准入 token：扩展握手时 auth.worker_token 必须等于其一（M1 简单校验，后续移到 DB）
+worker_tokens = ["dev-worker-token"]
+
+# 消费方 API key（M1 明文校验，后续移到 DB 哈希）
+api_keys = ["sk-sub2org-dev"]
+
+# 超时（秒）
+queue_wait_secs = 120
+generation_secs = 180
+
+# M3：心跳超过该秒数没来 → 剔除 worker；限流恢复时间解析不出时的兜底冷却。
+# 注意：应 > ping_interval+ping_timeout（默认 20+60=80s），否则 health 会抢在传输层断连前剔除，
+# 绕过 on_disconnect 的干净清理。调小须同步评估 main.rs 的 ping 配置。
+heartbeat_stale_secs = 90
+default_cooldown_secs = 3600
+
+# 日志系统：按端/类型/级别入库（有 database_url 才写 PG，否则内存环形供查询）。
+log_to_db = true
+log_min_level = "info"       # 低于此只进控制台
+log_retention_days = 14      # 超期自动清理
+log_channel_capacity = 10000 # 投递通道容量，满了丢弃并计数
+
+# 用户体系 / 鉴权
+admin_token = ""              # /admin/* 的 X-Admin-Token；空=不走 token 校验（改走控制台 admin JWT 登录）
+# ⚠️ DEV ONLY：admin_token 为空时是否「放行全部 /admin/* 免鉴权」。默认 false=拒绝（deny-by-default）。
+# 这里出厂置 true 是为本地 dev 方便（curl /admin/* 免 token）；【生产部署务必删除此行或设 false】。
+allow_open_admin = true
+jwt_secret = "dev-secret-change-me"   # 用户 dashboard JWT 密钥，生产必须改
+# 是否信任反代写入的 X-Real-IP / X-Forwarded-For。默认 true（在 nginx 后）。
+# 若把 bind 端口直接暴露公网（无反代），务必设 false，否则客户端可伪造头绕过限流/IP 过滤。
+# trust_proxy_headers = true
+allow_registration = true     # 是否允许 /auth/register 自助注册
+admin_username = "admin"      # 首启 bootstrap 的 admin 账号
+# 空=首启随机生成并打印一次。⚠️ 内存后端(无 database_url)下随机密码不持久，每次重启都变 →
+# 用内存跑就务必设固定值（或走 env SUB2ORG_ADMIN_PASSWORD）；配了 Postgres 则空值也 OK（只生成一次并入库）。
+admin_password = ""
+
+# 计费（按次 + 按 model 费率）
+billing_enabled = false       # 总开关；false=不计费（保持无计费行为）
+default_cost = 1              # 每次提问默认扣 credits
+default_initial_balance = 0   # 新用户/新注册初始余额
+
+# GET /v1/models 对外公布的 model id 列表。留空 = 回退默认 ["gpt-4o","claude"]。
+# 非空时同时启用 model 白名单校验：不在表内且 provider_map 无前缀命中的 model → 400。
+# models = ["gpt-4o", "claude", "gpt-5.5-pro"]
+
+# model 名 → 每次扣费 credits（最长前缀匹配，fallback default_cost）
+[model_cost]
+# "gpt-4" = 5
+# "gpt-3.5" = 1
+
+# model 名 → provider 映射前缀
+[provider_map]
+"gpt-" = "chatgpt"
+"o1" = "chatgpt"
+"o3" = "chatgpt"
+"chatgpt" = "chatgpt"
+"claude" = "claude"
+
+# 图片 / 多模态（vision）。base64 data URI 透传；https URL 服务端 fetch 归一为 data URI 后走 socket 下发给 worker。
+# ⚠️ 带图请求体较大：服务端 max_body_bytes 默认已提到 32MiB，反代 nginx 也需 client_max_body_size 同步放开（见 deploy/nginx.conf）。
+[image]
+enabled = true            # 关 = 仍丢弃图片（行为同旧版）
+max_bytes = 5242880       # 单图解码后上限 5 MiB
+max_count = 4             # 单请求最多图片数
+# 是否允许服务端 fetch https URL 图片（关 = 只收 base64 data URI，关闭即彻底无 SSRF 面）。
+# 开启时已加固：解析后逐一拒私网/环回/CGNAT/保留段 + 把校验过的 IP 钉定到连接(防 DNS rebinding) +
+# 不跟随重定向 + 流式按 max_bytes 截断 + 全局并发闸。敏感网络环境可设 false 仅收 base64。
+fetch_url = true
+fetch_timeout_secs = 10

@@ -1,0 +1,9 @@
+# 切勿提交生产密钥 / 证书 / 实际配置
+.env
+config.toml
+certs/
+
+# 自托管 CRX 产物（由 extension/scripts/pack-crx.mjs 生成后放入 ext/）
+ext/*.crx
+ext/*.pem
+ext/updates.xml

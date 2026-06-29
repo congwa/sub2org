@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "serverBaseUrl": {
+      "title": "sub2org 服务地址",
+      "description": "Rust 中转控制中心 base URL，如 https://sub2org.example.com",
+      "type": "string"
+    },
+    "apiBaseUrl": {
+      "title": "serverBaseUrl 的别名",
+      "description": "与 serverBaseUrl 等价（兼容本地存储键名）",
+      "type": "string"
+    },
+    "workerToken": {
+      "title": "Worker Token",
+      "description": "准入令牌，需与服务端 worker_tokens 匹配",
+      "type": "string"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string",
+      "enum": ["chatgpt", "claude"]
+    },
+    "accountLabel": {
+      "title": "账号标签",
+      "description": "便于在控制台区分多个账号；留空则由 /worker/claim 自动分配",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,111 @@
+# sub2org 生产配置模板。复制为 config.toml 后按需修改，敏感项建议走环境变量（见 deploy/.env.example）。
+# 校验：production=true（或 env SUB2ORG_ENV=prod）时，仍带 dev 默认值会拒绝启动。
+
+bind = "0.0.0.0:3300"
+
+# 生产模式：开启后强制校验密钥/admin_token/种子凭据/数据库（见 validate_for_prod）。
+production = true
+
+# 对外公网基址（拼支付回调 / 邮件链接，必须是用户与 epay 都能访问的 https 域名）。
+# 也可用 env SUB2ORG_PUBLIC_BASE_URL 覆盖。
+public_base_url = "https://sub2org.example.com"
+
+# Postgres（生产必填；为空=内存存储，重启丢全部数据）。建议走 env SUB2ORG_DATABASE_URL。
+database_url = "postgres://sub2org:CHANGE_ME@postgres:5432/sub2org"
+
+failover_on_offline = false
+
+# worker 准入 token（强随机；多台 worker 共用一个 bootstrap token 即可）。
+worker_tokens = ["CHANGE_ME_worker_token"]
+
+# config 种子 api_key（可留空，改由控制台/admin 接口签发）。生产请勿放 sk-sub2org-dev。
+api_keys = []
+
+queue_wait_secs = 120
+generation_secs = 180
+heartbeat_stale_secs = 90
+default_cooldown_secs = 3600
+
+# ---- 网络安全 ----
+# CORS 白名单；非空=只允许这些来源。同源(nginx 托管 console)部署可留空。
+allowed_origins = []
+# 请求体上限（字节），默认 1 MiB。
+max_body_bytes = 1048576
+
+# ---- 日志 ----
+log_to_db = true
+log_min_level = "info"
+log_retention_days = 14
+log_channel_capacity = 10000
+
+# ---- 用户体系 / 鉴权（敏感项走 env）----
+admin_token = "CHANGE_ME_admin_token"            # 或 env SUB2ORG_ADMIN_TOKEN；空=/admin 裸奔（prod 拒启）
+jwt_secret = "CHANGE_ME_至少16位的强随机串"        # 或 env SUB2ORG_JWT_SECRET
+allow_registration = true
+admin_username = "admin"
+admin_password = ""                              # 或 env SUB2ORG_ADMIN_PASSWORD；空=首启随机生成并打印一次
+# 开启后注册需邮箱验证才能消费（需配 [smtp]）。
+require_email_verify = false
+# Prometheus /metrics 抓取令牌（Bearer 或 ?token=）；或 env SUB2ORG_METRICS_TOKEN。
+# 空 = /metrics 开放，必须用 nginx allowlist 锁住（见 DEPLOY.md 第 8 节）。
+metrics_token = ""
+
+# ---- 计费（按次 / 按 model 固定价）----
+billing_enabled = true
+default_cost = 1
+default_initial_balance = 0
+
+[model_cost]
+# 最长前缀匹配，fallback default_cost
+"gpt-4o" = 3
+"gpt-4" = 5
+"claude" = 4
+
+[provider_map]
+"gpt-" = "chatgpt"
+"o1" = "chatgpt"
+"o3" = "chatgpt"
+"chatgpt" = "chatgpt"
+"claude" = "claude"
+
+# ---- 在线支付（易支付 / epay 兼容；缺省整段=不启用在线支付，仍可用兑换码+admin充值）----
+[payment]
+epay_url = "https://pay.example.com"   # 网关基址（submit.php 的上级路径）
+epay_pid = "CHANGE_ME_pid"             # 或 env SUB2ORG_EPAY_PID
+epay_key = "CHANGE_ME_key"             # 或 env SUB2ORG_EPAY_KEY（商户密钥，务必走 env）
+enabled_channels = ["alipay", "wxpay"] # epay type
+min_amount = 100                       # 单笔最小下单积分
+max_amount = 1000000                   # 单笔最大下单积分
+credits_per_cny = 100                  # 多少积分 = 1 元（下单 money = amount / credits_per_cny）
+
+# ---- 邮件（找回密码 / 邮箱验证；缺省整段=不发邮件，相关端点返回"未配置"）----
+[smtp]
+host = "smtp.example.com"
+port = 587
+username = "no-reply@example.com"
+password = ""                          # 走 env SUB2ORG_SMTP_PASSWORD
+from = "sub2org <no-reply@example.com>"
+starttls = true                        # 587=true(STARTTLS) / 465=false(隐式 TLS)
+
+# ---- worker 规模化预配（扩展用共享 worker_token 调 POST /worker/claim 领取唯一身份）----
+[worker]
+provision_enabled = true               # 关 → /worker/claim 返回 403（仅手填/socket 直连）
+default_provider = "chatgpt"           # claim 未指定 provider 时
+label_prefix = "wk"                    # 自动生成标签前缀 → wk-001
+
+# ---- 告警（缺省整段=不启用；webhook + 邮件可同时）----
+[alert]
+enabled = true
+webhook_url = "https://hooks.example.com/sub2org"  # 留空=不发 webhook（POST JSON）
+webhook_secret = ""                    # 走 env SUB2ORG_ALERT_WEBHOOK_SECRET；非空则带 X-Sub2org-Alert-Token 头
+email_to = ""                          # 留空=不发邮件（复用上面的 [smtp]）
+balance_low_threshold = 100            # 用户扣后余额低于此触发 balance_low；<=0 关闭
+error_rate_threshold = 0.5             # 60s 窗、≥20 样本时错误率超过此触发 error_rate
+min_interval_secs = 300                # 同一告警键最小间隔（去重防刷）
+
+# ---- 网络层 IP allow/deny（缺省整段=不限制）----
+# ⚠️ 仅在 nginx 反代后可信（取 X-Forwarded-For 第一跳）；切勿把 bind 端口直接暴露公网。
+# allow 非空 = 仅放行这些 CIDR（自动追加回环）；deny 始终优先拦截。非法 CIDR 启动期拒启。
+[security]
+ip_allow = []                          # 如 ["10.0.0.0/8", "203.0.113.4/32"]
+ip_deny = []                           # 如 ["1.2.3.0/24"]

@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* 自定义 dark 变体：.dark 作用域内的工具类翻深色（侧栏用） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- 设计 token（来自设计稿）→ Tailwind v4 工具类 ---- */
+@theme {
+  --color-ink-900: #13161d;
+  --color-ink-850: #181c25;
+  --color-ink-800: #1d222d;
+  --color-ink-700: #262c39;
+  --color-ink-600: #323a49;
+  --color-ink-line: #2c3340;
+  --color-ink-soft: #9aa3b2;
+
+  --color-brand-amber: #f5a73e;
+  --color-brand-gold: #f9be41;
+
+  --color-green-100: #dcfce7;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-amber-100: #fef3c7;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-red-50: #fef2f2;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+
+  /* 语义 token（light，主内容）；.dark 内运行时覆盖 → 侧栏自动翻深 */
+  --color-background: #f9fafb;
+  --color-foreground: #13161d;
+  --color-card: #ffffff;
+  --color-card-foreground: #13161d;
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #5b6573;
+  --color-border: #e5e7eb;
+  --color-input: #e5e7eb;
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #fef3e2;
+  --color-accent-foreground: #d97706;
+  --color-destructive: #dc2626;
+  --color-ring: #2563eb;
+
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-lg: 0.75rem;
+}
+
+/* 侧栏深色作用域：覆盖语义 token */
+.dark {
+  --color-background: #181c25;
+  --color-foreground: #dfe3ea;
+  --color-card: #1d222d;
+  --color-card-foreground: #dfe3ea;
+  --color-muted: #262c39;
+  --color-muted-foreground: #9aa3b2;
+  --color-border: #2c3340;
+  --color-input: #2c3340;
+  --color-primary: #f5a73e;
+  --color-primary-foreground: #1a1205;
+  --color-accent: #262c39;
+  --color-accent-foreground: #ffffff;
+  --color-ring: #f5a73e;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #eef0f3;
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.4s infinite;
+}
