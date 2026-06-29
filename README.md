@@ -148,4 +148,4 @@ curl -N -X POST localhost:3300/v1/chat/completions \
 - [linuxdo](https://linux.do)
 
 ## 其它工具
-- [中转 tps 测试 - 模型固有参数，tps不稳一定为假](https://curl0.com/)
+- [中转站 tps 测试 - 模型固有参数，tps不稳一定为假](https://curl0.com/)
