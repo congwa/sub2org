@@ -15,7 +15,13 @@ export function HeroSection({ content }: HeroSectionProps) {
     <section className="hero-section" id="product">
       <div className="hero-copy">
         <p className="eyebrow">{content.hero.eyebrow}</p>
-        <h1>{content.hero.title}</h1>
+        <h1 aria-label={content.hero.title}>
+          {content.hero.titleLines.map((line) => (
+            <span className="hero-title-line" key={line}>
+              {line}
+            </span>
+          ))}
+        </h1>
         <p className="hero-lead">{content.hero.lead}</p>
 
         <div className="cta-row">
@@ -56,17 +62,19 @@ export function HeroSection({ content }: HeroSectionProps) {
           src="/assets/relay-control-surface.jpg"
           width={1568}
         />
-        <figure className="code-panel">
-          <figcaption>
-            <TerminalSquare aria-hidden="true" size={17} strokeWidth={2} />
-            {content.hero.codeLabel}
-          </figcaption>
-          <pre>
-            <code>{`curl -N localhost:3300/v1/chat/completions \\
+        {content.hero.showCodePanel ? (
+          <figure className="code-panel">
+            <figcaption>
+              <TerminalSquare aria-hidden="true" size={17} strokeWidth={2} />
+              {content.hero.codeLabel}
+            </figcaption>
+            <pre>
+              <code>{`curl -N localhost:3300/v1/chat/completions \\
   -H "authorization: Bearer sk-sub2org-dev" \\
   -d '{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"ping"}]}'`}</code>
-          </pre>
-        </figure>
+            </pre>
+          </figure>
+        ) : null}
       </div>
     </section>
   );

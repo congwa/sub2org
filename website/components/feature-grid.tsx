@@ -29,7 +29,7 @@ export function FeatureGrid({ content }: FeatureGridProps) {
   return (
     <section className="feature-section" aria-labelledby="feature-title">
       <div className="section-heading">
-        <p className="eyebrow">Control plane</p>
+        <p className="eyebrow">{content.features.eyebrow}</p>
         <h2 id="feature-title">{content.features.title}</h2>
         <p>{content.features.kicker}</p>
       </div>

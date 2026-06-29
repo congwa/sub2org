@@ -9,26 +9,15 @@ type OperationsSectionProps = {
 const panelIcons = [Activity, DatabaseZap, ListChecks];
 
 /**
- * 业务职责：把里程碑、指标、日志和持久化策略放在同一段落，突出单实例架构下的运维可控性。
+ * 业务职责：把故障处理、持久化和可观测策略放在同一段落，突出单实例架构下的运维可控性。
  */
 export function OperationsSection({ content }: OperationsSectionProps) {
   return (
     <section className="operations-section" id="ops" aria-labelledby="ops-title">
-      <div className="ops-layout">
-        <div className="section-heading">
-          <p className="eyebrow">Operate with confidence</p>
-          <h2 id="ops-title">{content.operations.title}</h2>
-          <p>{content.operations.intro}</p>
-        </div>
-
-        <div className="metric-grid" aria-label="sub2org operational metrics">
-          {content.operations.metrics.map((metric) => (
-            <div className="metric-tile" key={metric.label}>
-              <strong>{metric.value}</strong>
-              <span>{metric.label}</span>
-            </div>
-          ))}
-        </div>
+      <div className="section-heading">
+        <p className="eyebrow">{content.operations.eyebrow}</p>
+        <h2 id="ops-title">{content.operations.title}</h2>
+        <p>{content.operations.intro}</p>
       </div>
 
       <div className="ops-panels">

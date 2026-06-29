@@ -19,14 +19,17 @@ export type SiteDictionary = {
   hero: {
     eyebrow: string;
     title: string;
+    titleLines: string[];
     lead: string;
     primaryCta: string;
     secondaryCta: string;
     proof: string[];
     codeLabel: string;
+    showCodePanel: boolean;
     imageAlt: string;
   };
   protocol: {
+    eyebrow: string;
     title: string;
     intro: string;
     steps: Array<{
@@ -35,6 +38,7 @@ export type SiteDictionary = {
     }>;
   };
   features: {
+    eyebrow: string;
     title: string;
     kicker: string;
     items: Array<{
@@ -44,6 +48,7 @@ export type SiteDictionary = {
     }>;
   };
   workflow: {
+    eyebrow: string;
     title: string;
     intro: string;
     steps: Array<{
@@ -53,12 +58,9 @@ export type SiteDictionary = {
     }>;
   };
   operations: {
+    eyebrow: string;
     title: string;
     intro: string;
-    metrics: Array<{
-      value: string;
-      label: string;
-    }>;
     panels: Array<{
       title: string;
       body: string;
@@ -74,151 +76,151 @@ export type SiteDictionary = {
 export const dictionaries: Record<Locale, SiteDictionary> = {
   zh: {
     languageName: "中文",
-    alternateLanguageName: "English",
+    alternateLanguageName: "英文",
     meta: {
-      title: "sub2org - OpenAI-compatible Browser Relay",
+      title: "浏览器会话池中继官网",
       description:
-        "sub2org 把浏览器里的 ChatGPT/Codex 会话池包装成 OpenAI-compatible relay API，支持 worker 调度、真流式、会话亲和、计费与日志。"
+        "把浏览器里的网页智能会话池包装成兼容接口服务，支持工作节点调度、逐字流式回传、会话亲和、计费与日志。"
     },
     nav: {
       product: "产品",
       flow: "链路",
       ops: "运维",
-      docs: "Docs"
+      docs: "文档"
     },
     hero: {
-      eyebrow: "Browser sessions as infrastructure",
-      title: "把 Browser Workers 变成 OpenAI-compatible Relay API",
+      eyebrow: "浏览器会话池成为基础设施",
+      title: "把浏览器工作节点编排成兼容接口中继",
+      titleLines: ["把浏览器工作节点", "编排成", "兼容接口中继"],
       lead:
-        "sub2org 将多台指纹浏览器、扩展 worker 和已登录的网页 AI 账号编排成一个可调度的 API relay。消费者仍然调用 /v1/chat/completions，背后由 worker pool 完成 dispatch、streaming、session affinity 与 failure handling。",
+        "系统将多台指纹浏览器、扩展工作节点和已登录的网页智能账号编排成一个可调度的中继服务。调用方仍然使用熟悉的聊天补全入口，背后由工作节点池完成分发、逐字回传、会话保持与故障处理。",
       primaryCta: "查看使用文档",
-      secondaryCta: "打开 GitHub",
+      secondaryCta: "打开代码仓库",
       proof: [
-        "Rust control center",
-        "Socket.IO worker protocol",
-        "SSE token streaming",
-        "Billing-ready console"
+        "服务控制中心",
+        "工作节点协议",
+        "逐字流式回传",
+        "计费控制台"
       ],
-      codeLabel: "OpenAI-compatible request",
+      codeLabel: "兼容接口请求",
+      showCodePanel: false,
       imageAlt:
-        "sub2org relay control surface showing API streams routed to browser worker sessions"
+        "中继控制台把接口请求分发到多个浏览器工作节点的产品示意图"
     },
     protocol: {
-      title: "A relay control plane, not another model wrapper",
+      eyebrow: "协议路径",
+      title: "这是中继控制面，不是另一个模型外壳",
       intro:
-        "请求从消费者 API 进入，调度器挑选 idle worker，扩展在网页端完成 prompt 输入，并把 chunk 逐字回传为标准 SSE。",
+        "请求从调用方入口进入，调度器挑选空闲工作节点，扩展在网页端完成提问输入，并把增量内容逐字回传为标准事件流。",
       steps: [
-        { label: "Client", value: "OpenAI SDK / curl" },
-        { label: "Server", value: "auth, billing, scheduler" },
-        { label: "Worker", value: "browser extension + logged-in web AI" },
-        { label: "Stream", value: "chat.completion.chunk" }
+        { label: "调用方", value: "应用程序或命令行工具" },
+        { label: "服务端", value: "鉴权、计费、调度" },
+        { label: "工作节点", value: "浏览器扩展与登录态网页智能" },
+        { label: "流式输出", value: "聊天增量事件" }
       ]
     },
     features: {
-      title: "Built for operators who run many browser accounts",
-      kicker: "把实验性浏览器自动化，收束成可观测、可限流、可计费的 API 产品。",
+      eyebrow: "控制面",
+      title: "为管理大量浏览器账号的团队而建",
+      kicker: "把实验性的浏览器自动化，收束成可观测、可限流、可计费的接口产品。",
       items: [
         {
           icon: "Workflow",
-          title: "Worker pool scheduling",
+          title: "工作节点池调度",
           body:
-            "每台云机器以 worker 身份接入，调度器按状态、并发槽和 queue wait 选择可用节点，避免单账号成为瓶颈。"
+            "每台云机器以工作节点身份接入，调度器按状态、并发槽位和排队等待时间选择可用节点，避免单个账号成为瓶颈。"
         },
         {
           icon: "Cable",
-          title: "Session affinity",
+          title: "会话亲和",
           body:
-            "X-Sub2org-Session 能把后续请求钉回同一个 worker 与网页 conversation，让长上下文业务有连续性。"
+            "会话标识能把后续请求固定回同一个工作节点与同一个网页对话，让长上下文业务保持连续。"
         },
         {
           icon: "RadioTower",
-          title: "True streaming bridge",
+          title: "真实流式桥接",
           body:
-            "content loader 捕获网页 SSE，background 通过 Socket.IO 回传，server 重新封装为 OpenAI chunk。"
+            "页面注入层捕获网页事件流，后台脚本经套接字通道回传，服务端再封装为调用方熟悉的增量响应。"
         },
         {
           icon: "ShieldCheck",
-          title: "Auth and role surfaces",
+          title: "鉴权与角色分层",
           body:
-            "消费 API key、用户 JWT、admin token 三套入口分层管理，适合把 relay 暴露给多个内部或外部用户。"
+            "消费密钥、用户登录令牌、管理员令牌三套入口分层管理，适合把中继服务提供给多个内部或外部用户。"
         },
         {
           icon: "ReceiptText",
-          title: "Pre-deduct billing",
+          title: "预扣费计费",
           body:
-            "按 model 成本预扣，成功 commit，失败 refund；默认可关闭，方便从私有工具平滑进化到付费服务。"
+            "按模型成本预扣余额，成功后确认扣费，失败后自动退还；默认可关闭，方便从私有工具平滑进化到付费服务。"
         },
         {
           icon: "Gauge",
-          title: "Live operations console",
+          title: "实时运维控制台",
           body:
-            "日志、metrics、worker 状态和 live events 进入 console，让排队、掉线、限流和登录失效都能被看见。"
+            "日志、指标、工作节点状态和实时事件进入控制台，让排队、掉线、限流和登录失效都能被看见。"
         }
       ]
     },
     workflow: {
-      title: "从一个 API call 到网页 AI 的完整路径",
+      eyebrow: "请求生命周期",
+      title: "从一次接口调用到网页智能会话",
       intro:
-        "sub2org 的关键不是替代模型，而是把浏览器会话池包装成稳定的 OpenAI-compatible serving layer。",
+        "关键不是替代模型，而是把浏览器会话池包装成稳定的兼容接口服务层。",
       steps: [
         {
-          number: "01",
-          title: "Consumer request",
+          number: "一",
+          title: "调用方请求",
           body:
-            "客户端带 sk-sub2org API key 请求 /v1/chat/completions，server 完成鉴权、限流、余额检查与会话解析。"
+            "客户端携带消费密钥请求聊天补全入口，服务端完成鉴权、限流、余额检查与会话解析。"
         },
         {
-          number: "02",
-          title: "Scheduler dispatch",
+          number: "二",
+          title: "调度器分发",
           body:
-            "pool registry 只选择 idle/capacity 可用的 worker；如果 session 已绑定，则优先回到原 worker 与 conversation。"
+            "节点注册表只选择空闲且有容量的工作节点；如果会话已绑定，则优先回到原工作节点与原网页对话。"
         },
         {
-          number: "03",
-          title: "Browser execution",
+          number: "三",
+          title: "浏览器执行",
           body:
-            "MV3 扩展管理标签页，content loader 注入页面 JS world，劫持 window.fetch 并解析网页 AI 的增量输出。"
+            "浏览器扩展管理标签页，页面注入层进入网页运行环境，捕获网络请求并解析网页智能的增量输出。"
         },
         {
-          number: "04",
-          title: "OpenAI-style response",
+          number: "四",
+          title: "兼容格式响应",
           body:
-            "server 按 req_id 关联 chunk/done/error，把 worker 输出转换为 chat.completion.chunk 或非流式聚合结果。"
+            "服务端按请求编号关联增量、完成和错误事件，把工作节点输出转换为流式响应或非流式聚合结果。"
         }
       ]
     },
     operations: {
-      title: "Production-minded, single-instance by design",
+      eyebrow: "可信运维",
+      title: "面向生产，但刻意保持单实例",
       intro:
-        "当前架构明确选择单 sub2org 实例与内存实时状态，Postgres 只持久化身份、账号、账单和日志，降低运维复杂度。",
-      metrics: [
-        { value: "M1-M3", label: "relay milestones done" },
-        { value: "24h", label: "request ring metrics" },
-        { value: "10", label: "log categories" },
-        { value: "3", label: "auth surfaces" }
-      ],
+        "当前架构明确选择单实例与内存实时状态，关系数据库只持久化身份、账号、账单和日志，降低运维复杂度。",
       panels: [
         {
-          title: "Fast failure",
+          title: "快速失败",
           body:
-            "worker 断连或心跳超时会立即 fail inflight request，而不是让消费者等 generation timeout。"
+            "工作节点断连或心跳超时会立即结束在途请求，而不是让调用方等待生成超时。"
         },
         {
-          title: "Store abstraction",
+          title: "存储抽象",
           body:
-            "无 database_url 时用 in-memory dev store；配置 Postgres 后自动迁移并持久化 users、keys、sessions 与 logs。"
+            "未配置数据库时使用内存开发存储；配置关系数据库后自动迁移，并持久化用户、密钥、会话和日志。"
         },
         {
-          title: "Console-first visibility",
+          title: "控制台优先可见",
           body:
-            "admin/events 使用 SSE 推送 live events，日志 sink 非阻塞批量写入，relay 热路径不会被日志系统拖慢。"
+            "管理事件流推送实时状态，日志通道以非阻塞方式批量写入，中继热路径不会被日志系统拖慢。"
         }
       ]
     },
     footer: {
-      tagline: "sub2org keeps browser AI sessions operational, observable, and API-shaped.",
-      repo: "GitHub Repository",
-      switchLanguage: "Switch to English"
+      tagline: "让浏览器智能会话可运营、可观测，并以接口形态对外服务。",
+      repo: "代码仓库",
+      switchLanguage: "切换到英文"
     }
   },
   en: {
@@ -237,7 +239,8 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
     },
     hero: {
       eyebrow: "浏览器会话池, served like infrastructure",
-      title: "Turn browser workers into an OpenAI-compatible Relay API",
+      title: "Turn browser workers into an OpenAI API relay",
+      titleLines: ["Turn browser", "workers into", "OpenAI API relay"],
       lead:
         "sub2org coordinates fingerprint browsers, extension workers, and logged-in web AI accounts behind /v1/chat/completions. The consumer sees a familiar API; the control plane handles dispatch, streaming, session affinity, billing hooks, and fast failure.",
       primaryCta: "Read the docs",
@@ -249,10 +252,12 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
         "Billing-ready console"
       ],
       codeLabel: "OpenAI-compatible request",
+      showCodePanel: true,
       imageAlt:
         "sub2org relay control surface showing API streams routed to browser worker sessions"
     },
     protocol: {
+      eyebrow: "Protocol path",
       title: "A control plane for web AI accounts",
       intro:
         "Requests enter through the consumer API, the scheduler chooses an idle worker, the extension executes in the browser UI, and token chunks return as standard SSE.",
@@ -264,6 +269,7 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
       ]
     },
     features: {
+      eyebrow: "Control plane",
       title: "Built for teams operating many browser accounts",
       kicker:
         "A practical layer that turns fragile browser automation into observable, rate-limited, billable API infrastructure.",
@@ -307,6 +313,7 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
       ]
     },
     workflow: {
+      eyebrow: "Request lifecycle",
       title: "From one API call to a browser AI session",
       intro:
         "sub2org does not pretend to be a model. It shapes browser sessions into a stable OpenAI-compatible serving layer.",
@@ -338,15 +345,10 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
       ]
     },
     operations: {
+      eyebrow: "Operate with confidence",
       title: "Production-minded, intentionally single-instance",
       intro:
         "Live presence stays in memory inside one sub2org server; Postgres persists identity, accounts, billing, sessions, and logs without adding Redis complexity.",
-      metrics: [
-        { value: "M1-M3", label: "relay milestones done" },
-        { value: "24h", label: "request ring metrics" },
-        { value: "10", label: "log categories" },
-        { value: "3", label: "auth surfaces" }
-      ],
       panels: [
         {
           title: "Fast failure",

@@ -12,7 +12,7 @@ export function WorkflowSection({ content }: WorkflowSectionProps) {
   return (
     <section className="workflow-section" id="flow" aria-labelledby="workflow-title">
       <div className="section-heading">
-        <p className="eyebrow">Request lifecycle</p>
+        <p className="eyebrow">{content.workflow.eyebrow}</p>
         <h2 id="workflow-title">{content.workflow.title}</h2>
         <p>{content.workflow.intro}</p>
       </div>

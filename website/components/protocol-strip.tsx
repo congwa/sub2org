@@ -13,7 +13,7 @@ export function ProtocolStrip({ content }: ProtocolStripProps) {
   return (
     <section className="protocol-strip" aria-labelledby="protocol-title">
       <div className="section-heading compact">
-        <p className="eyebrow">Protocol path</p>
+        <p className="eyebrow">{content.protocol.eyebrow}</p>
         <h2 id="protocol-title">{content.protocol.title}</h2>
         <p>{content.protocol.intro}</p>
       </div>
