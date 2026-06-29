@@ -4,3 +4,7 @@ target/
 *.pdb
 
 # 扩展构建/依赖另由 extension/.gitignore 处理（node_modules、dist_chrome 等）
+
+# 官网项目构建产物（website/）
+website/node_modules/
+website/.next/
