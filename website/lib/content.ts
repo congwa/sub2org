@@ -235,7 +235,7 @@ export const dictionaries: Record<Locale, SiteDictionary> = {
       product: "Product",
       flow: "Flow",
       ops: "Ops",
-      docs: "文档"
+      docs: "Docs"
     },
     hero: {
       eyebrow: "浏览器会话池, served like infrastructure",

@@ -64,7 +64,7 @@ export default async function LocaleHomePage({ params }: LocalePageProps) {
   const alternateLocale = getAlternateLocale(locale);
 
   return (
-    <main className="site-shell" lang={getHtmlLang(locale)}>
+    <main className="min-h-screen overflow-x-clip" lang={getHtmlLang(locale)}>
       <SiteHeader
         alternateLocale={alternateLocale}
         content={content}

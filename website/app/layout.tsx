@@ -8,7 +8,11 @@ export const metadata: Metadata = {
     template: "%s | sub2org"
   },
   description:
-    "sub2org turns browser-driven AI sessions into an OpenAI-compatible relay API with worker scheduling, streaming, billing, and operations visibility."
+    "sub2org turns browser-driven AI sessions into an OpenAI-compatible relay API with worker scheduling, streaming, billing, and operations visibility.",
+  icons: {
+    icon: [{ url: "/codexbuy-logo.png", type: "image/png" }],
+    apple: [{ url: "/codexbuy-logo.png", type: "image/png" }]
+  }
 };
 
 type RootLayoutProps = Readonly<{
