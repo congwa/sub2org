@@ -40,44 +40,7 @@ ChatGPT 网页 / Claude 网页    ← loader 劫持 window.fetch，逐字解析 
 > 核心范式：**room（一对一）→ worker 池 + session 亲和**；请求按 `req_id` 关联（不再按 roomId），
 > 一个 worker 可承载多个网页 conversation 窗口。单 sub2org 实例 + 多 worker 机器即可扩展（无需 Redis）。
 
-## 当前进度：M1–M3 + 日志系统 已完成
 
-M1（单实例 / 内存池 / 真流式）：
-- ✅ axum + socketioxide 服务，worker 经 Socket.IO 握手（auth 带 `worker_token`）接入
-- ✅ worker 的 `chunk`/`done` 实时转成 `chat.completion.chunk` SSE（含 `finish_reason:"stop"` + `[DONE]`）
-- ✅ `GET /admin/workers` 在线/负载、`GET /healthz`
-
-M2（会话亲和 + 调度 + 持久化）：
-- ✅ 会话亲和：`X-Sub2org-Session`（无则新建并在响应头回传；`X-Sub2org-New-Window: true` 同账号开新窗）
-- ✅ 续接路由到钉定的 worker + 网页 `conversation_id`，prompt 只发最新一条 user 消息
-- ✅ 调度：每 worker Semaphore 控并发槽位 + 排队等待（`queue_wait_secs`）+ 负载均衡选 worker
-- ✅ worker 离线策略：`failover_on_offline`（true 转移 / false 报 409）
-- ✅ 持久化：`Store` 抽象，内存（dev）/ Postgres（sqlx 运行期查询 + 启动跑 migrations）；会话重启不丢
-- ✅ 鉴权走 store；admin：`POST /admin/api-keys`、`GET /admin/sessions[/:id]`
-
-M3（多 worker 机器规模化，单 sub2org + 多云机器）：
-- ✅ worker **自注册入库**（共享 bootstrap token，首连自动写 `workers` 表）
-- ✅ worker **状态模型** idle/busy/cooling/logged_out/disabled，调度自动跳过+轮换+到点恢复
-- ✅ **心跳保活** + 过期剔除（`heartbeat_stale_secs`）+ **断连快速失败**（在途请求秒级失败，不等生成超时）
-- ✅ **故障转移**（`failover_on_offline`）；全员不可用 → 503 带恢复时间
-- ✅ admin：`GET /admin/workers`（合并在线+DB离线、状态/负载/统计）、`POST /admin/workers/{id}/disable|enable`
-- ✅ 扩展端：心跳(chrome.alarms)、429/401 限流/掉登录检测上报、capacity 锁 1（机制就绪，选择器/阈值需按现网调）
-- ❌ M4：Redis 多实例（不做，已确认 sub2org 单实例）
-
-日志系统（按 端/类型/级别 分类入库）：
-- ✅ 两个端：`server`(sub2org 自身，经 tracing Layer 自动采集) + `worker:<id>`(各云机器扩展经 Socket.IO `log` 事件批量上报，worker_id 由服务端按连接身份打)
-- ✅ 10 类 category(connection/dispatch/stream/scheduler/auth/rate_limit/http/dom/system/error) + 级别过滤(默认 info 入库)
-- ✅ 存储：Postgres `logs` 表(`0003_logs.sql`)；dev 无 DB 用内存环形缓冲;14 天自动清理
-- ✅ 非阻塞：bounded channel + try_send(满了丢+dropped 计数) + 批量异步 flush;DB 挂降级控制台;只采集本 crate target 防反馈环
-- ✅ 查询：`GET /admin/logs?source/worker_id/category/level/req_id/session_id/since/until/limit/offset`
-
-用户体系 + 计费 + 鉴权（`server/src/account/`）：
-- ✅ 用户（余额挂用户）+ api_key 归属用户 + 状态；argon2 密码 + JWT 自助登录 dashboard
-- ✅ 计费：按 model 费率 **预扣 + 失败退还**、流水（充值/扣费/退还/兑换）；`billing_enabled` 默认 false
-- ✅ 充值：admin 充值 + 兑换码（在线支付预留）；消费方 `GET /v1/balance` 自查
-- ✅ 用户管理：封禁/解封、禁用/启用单 key、用户 CRUD、用户级并发限流；`/admin/*` 加 `X-Admin-Token` + 角色鉴权
-- ✅ 双后端（内存/Postgres）端到端验证；首启自动 bootstrap admin
-- ⏳ 在线支付网关 + dashboard 前端 UI（后续）
 
 ## 运行
 
