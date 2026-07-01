@@ -8,3 +8,8 @@ target/
 # 官网项目构建产物（website/）
 website/node_modules/
 website/.next/
+
+# docs/mock-worker.js 本地测试依赖（临时装的 socket.io-client，不入库）
+docs/node_modules/
+docs/package.json
+docs/package-lock.json
