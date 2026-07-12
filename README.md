@@ -6,6 +6,15 @@
 
 **📖 使用文档（部署/接 worker/调 API/运维/排查）：[`docs/USAGE.md`](docs/USAGE.md)**
 
+## 当前线上拓扑
+
+本仓库 `website/` 的 `sub2.org` release 运行在 SFO `108.62.160.202`，由
+`sub2org-website.service` 监听 `127.0.0.1:19440`。公网请求先到 aiyunus OpenResty，
+再经 WireGuard 转发到 SFO `10.88.0.1:18080`。aiyunus 不保存 website release、源码、
+Node 运行时或业务数据。机器事实以
+[`vps/ops/sfo`](/Users/wang/code/xiaoji/vps/ops/sfo/README.md) 和
+[`vps/ops/aiyunus`](/Users/wang/code/xiaoji/vps/ops/aiyunus/README.md) 为准。
+
 ## 总体架构
 
 ```
