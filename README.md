@@ -11,7 +11,8 @@
 本仓库 `website/` 的 `sub2.org` release 运行在 SFO `108.62.160.202`，由
 `sub2org-website.service` 监听 `127.0.0.1:19440`。公网请求先到 aiyunus OpenResty，
 再经 WireGuard 转发到 SFO `10.88.0.1:18080`。aiyunus 不保存 website release、源码、
-Node 运行时或业务数据。机器事实以
+Node 运行时或业务数据。aiyunus 是 SFO 当前唯一公网线路网关和唯一 WireGuard peer，
+没有暖备或自动切换；已释放的 DMIT 线路机不得作为部署目标。机器事实以
 [`vps/ops/sfo`](/Users/wang/code/xiaoji/vps/ops/sfo/README.md) 和
 [`vps/ops/aiyunus`](/Users/wang/code/xiaoji/vps/ops/aiyunus/README.md) 为准。
 
