@@ -139,9 +139,15 @@ impl Registry {
 
     pub fn remove_by_sid(&self, sid: &Sid) -> Option<String> {
         if let Some((_, worker_id)) = self.by_sid.remove(sid) {
-            self.workers.remove(&worker_id);
-            self.notify.notify_waiters();
-            Some(worker_id)
+            // #9：仅当 workers[worker_id] 确实是这个 sid 的 handle 才注销——防陈旧 by_sid 误删 live 连接
+            //（重连后旧 sid 的迟到 disconnect 不得摘掉新连接，否则其在途请求被全部误退款）。
+            let removed = self.workers.remove_if(&worker_id, |_, h| h.sid == *sid).is_some();
+            if removed {
+                self.notify.notify_waiters();
+                Some(worker_id) // 触发 fail_worker_inflight + offline 事件
+            } else {
+                None // 陈旧 sid → 只清自己的 by_sid，不动 live handle
+            }
         } else {
             None
         }

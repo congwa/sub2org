@@ -522,6 +522,12 @@ impl Config {
         if self.worker.provision_enabled && self.worker_tokens.is_empty() {
             errs.push("worker.provision_enabled=true 但 worker_tokens 为空 → /worker/claim 恒 401（配 worker_tokens 或关 provision_enabled）".into());
         }
+        // #7：配了 per-model 差价（model_cost）却没设 models 白名单 → model 准入门是关的，
+        // 客户端可传任意 model 串按 default_cost 计费、却被路由到贵模型的 worker（如 gpt-4 按 gpt-3.5 价买）。
+        // 生产必须显式声明 models 白名单以启用 consumer 的准入门。
+        if self.billing_enabled && !self.model_cost.is_empty() && self.models.is_empty() {
+            errs.push("billing_enabled 且配了 model_cost 差价，但 models 白名单为空 → model 准入门关闭，客户端可传未知 model 按 default_cost 买到贵模型；生产必须设 models 白名单".into());
+        }
         if !errs.is_empty() {
             anyhow::bail!(
                 "生产模式(SUB2ORG_ENV=prod / production=true)配置校验失败：\n - {}",

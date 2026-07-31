@@ -21,6 +21,15 @@ pub fn spawn(state: Arc<AppState>) {
         loop {
             tick.tick().await;
             let now = now_secs();
+
+            // #11：清扫既无终止事件、又未超时摘除而滞留的在途请求（僵尸 pending 会永久泄漏预扣）。
+            // cutoff 给足 generation_secs + 60s 宽限，确保正常长任务不被误扫。
+            let pending_cutoff = now - (state.config.generation_secs as i64 + 60);
+            let reaped = state.reap_stale_pending(pending_cutoff);
+            if reaped > 0 {
+                tracing::warn!(category = "billing", count = reaped, "清扫滞留在途请求（无终止事件），已取消+退款");
+            }
+
             let threshold = now - state.config.heartbeat_stale_secs;
             for worker_id in state.registry.stale_worker_ids(threshold) {
                 tracing::warn!(category = "connection", %worker_id, "worker 心跳过期，剔除");

@@ -12,7 +12,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::account::CurrentUser;
-use crate::payment::{epay, money_str};
+use crate::payment::{epay, money_str, money_to_fen};
 use crate::state::AppState;
 
 fn jerr(code: StatusCode, msg: &str) -> Response {
@@ -110,10 +110,17 @@ async fn process_notify(state: &Arc<AppState>, map: HashMap<String, String>) -> 
         Some(o) => o,
         None => return "fail",
     };
-    // 校验金额一致（防篡改）。
+    // 校验金额一致（防篡改/防少付）。#8：数值比较而非严格字符串——网关把 "10.00" 回成 "10.0"
+    // 不再误判失败（真金已付却入不了账）。注意：expected 仍按**当前** credits_per_cny 重算，
+    // 若下单后管理员改了汇率，历史 pending 订单会对不上（reprice 缺陷）——根治需在下单时持久化原始金额，
+    // 见修复说明的后续项。
     let expected = money_str(order.amount, cfg.credits_per_cny);
-    if params.get("money").map(|s| s.as_str()) != Some(expected.as_str()) {
-        tracing::warn!(category = "payment", order_id = %order_id, "epay notify 金额不匹配");
+    let paid_ok = match (money_to_fen(params.get("money").map(|s| s.as_str()).unwrap_or("")), money_to_fen(&expected)) {
+        (Some(paid), Some(exp)) => paid == exp,
+        _ => false,
+    };
+    if !paid_ok {
+        tracing::warn!(category = "payment", order_id = %order_id, paid = ?params.get("money"), expected = %expected, "epay notify 金额不匹配");
         return "fail";
     }
     match state.account.store.mark_payment_paid(&order_id).await {

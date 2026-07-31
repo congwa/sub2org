@@ -53,6 +53,19 @@ async fn on_connect(socket: SocketRef, auth: TryData<WorkerAuth>, state: Arc<App
         return;
     }
 
+    // #9：worker_id 冲突/劫持防护——该 id 已有另一个活连接 → 拒绝新连接。
+    // 否则网络抖动重连（新 sid 同 worker_id）会：register 覆盖 workers[W] 为新 semaphore、
+    // 遗留旧 by_sid[旧sid]=W；旧连接超时 remove_by_sid 命中陈旧映射 → 误删 live 连接并把在途请求全退款。
+    if state.registry.worker_online(&auth.worker_id) {
+        if let Some(existing) = state.registry.sid_of(&auth.worker_id) {
+            if existing != socket.id {
+                tracing::warn!(worker_id = %auth.worker_id, "worker_id 已被活连接占用，拒绝新连接（防劫持/冲突）");
+                let _ = socket.disconnect();
+                return;
+            }
+        }
+    }
+
     // 自注册入库（首见 insert，再见更新 last_seen）
     if let Err(e) = state
         .store
@@ -105,13 +118,25 @@ async fn on_connect(socket: SocketRef, auth: TryData<WorkerAuth>, state: Arc<App
             let st = st.clone();
             let wid = wid.clone();
             async move {
-                st.route(
-                    &d.req_id,
-                    StreamEvent::Done {
-                        full: d.full_text,
-                        conversation_id: d.native_conversation_id,
-                    },
-                );
+                // 归属校验 + 原子摘除（先出 map，杜绝结算 await 期间被 fail_worker_inflight 注入 Error #15）。
+                let owns = st.pending.get(&d.req_id).map(|e| e.worker_id == wid).unwrap_or(false);
+                if !owns {
+                    return; // 请求已被终结/不属于本 worker → 幂等丢弃，绝不重复结算
+                }
+                let entry = match st.take_pending(&d.req_id) {
+                    Some(e) => e,
+                    None => return,
+                };
+                let streamed = entry.streamed_chars.load(std::sync::atomic::Ordering::Relaxed);
+                // #16：done.full_text 空但 deltas 已送达 → 仍算有内容（否则送了正文却全额退款 = 免费）。
+                let has_content = !d.full_text.trim().is_empty() || streamed > 0;
+                // 服务端侧结算：不依赖消费方是否还连着（治「断连即免费」#1）。
+                let charge = entry.charge.lock().unwrap().take();
+                st.settle_owned(charge, has_content).await;
+                let _ = entry.tx.send(StreamEvent::Done {
+                    full: d.full_text,
+                    conversation_id: d.native_conversation_id,
+                });
                 st.registry.mark_served(&wid);
                 st.registry.record_worker_success(&wid); // B4：成功完成即清熔断错误窗
                 let _ = st.store.incr_worker_served(&wid).await;
@@ -123,31 +148,54 @@ async fn on_connect(socket: SocketRef, auth: TryData<WorkerAuth>, state: Arc<App
         let st = state.clone();
         let wid = worker_id.clone();
         socket.on("error", move |Data::<WorkerError>(e)| {
-            if e.code == "rate_limited" && e.cooling_until > 0 {
-                st.registry.set_status(&wid, true, e.cooling_until);
-                if let Some(s) = st.registry.status_of(&wid, now_secs()) {
-                    st.publish(LiveEvent::WorkerStatus { worker_id: wid.clone(), status: s.to_string() });
-                }
-            }
-            st.publish(LiveEvent::RequestError { req_id: e.req_id.clone(), code: e.code.clone() });
-            // B4：worker 级故障码计入熔断；窗内达阈值 → 停派发并让在途请求立即失败。
-            if st.config.breaker.enabled && st.config.breaker.fault_codes.iter().any(|c| c == &e.code) {
-                let now = now_secs();
-                if st.registry.record_worker_error(
-                    &wid, now,
-                    st.config.breaker.window_secs,
-                    st.config.breaker.threshold,
-                    st.config.breaker.open_secs,
-                ) {
-                    tracing::warn!(category = "connection", worker_id = %wid, "熔断触发：停止派发");
-                    st.fail_worker_inflight(&wid, "worker circuit breaker tripped");
-                    if let Some(s) = st.registry.status_of(&wid, now) {
+            let st = st.clone();
+            let wid = wid.clone();
+            async move {
+                if e.code == "rate_limited" && e.cooling_until > 0 {
+                    st.registry.set_status(&wid, true, e.cooling_until);
+                    if let Some(s) = st.registry.status_of(&wid, now_secs()) {
                         st.publish(LiveEvent::WorkerStatus { worker_id: wid.clone(), status: s.to_string() });
                     }
                 }
+                st.publish(LiveEvent::RequestError { req_id: e.req_id.clone(), code: e.code.clone() });
+                // B4：worker 级故障码计入熔断；窗内达阈值 → 停派发并让在途请求立即失败。
+                if st.config.breaker.enabled && st.config.breaker.fault_codes.iter().any(|c| c == &e.code) {
+                    let now = now_secs();
+                    if st.registry.record_worker_error(
+                        &wid, now,
+                        st.config.breaker.window_secs,
+                        st.config.breaker.threshold,
+                        st.config.breaker.open_secs,
+                    ) {
+                        tracing::warn!(category = "connection", worker_id = %wid, "熔断触发：停止派发");
+                        st.fail_worker_inflight(&wid, "worker circuit breaker tripped");
+                        if let Some(s) = st.registry.status_of(&wid, now) {
+                            st.publish(LiveEvent::WorkerStatus { worker_id: wid.clone(), status: s.to_string() });
+                        }
+                    }
+                }
+                let msg = if e.message.is_empty() { e.code.clone() } else { e.message.clone() };
+                // 统一：归属校验 + take-first，对所有终止错误码一致处理（done/cancelled 已加固，这里补齐 plain error，
+                // 消除不对称；并关闭「fail 路径 send-Error-before-remove 与并发 done 争用 → 已扣费却报错」窗口 #15）。
+                // 若 breaker 已在上面调 fail_worker_inflight 摘除本请求，这里 owns=false → 跳过，绝不二次结算。
+                let owns = st.pending.get(&e.req_id).map(|en| en.worker_id == wid).unwrap_or(false);
+                if owns {
+                    if let Some(entry) = st.take_pending(&e.req_id) {
+                        let streamed = entry.streamed_chars.load(std::sync::atomic::Ordering::Relaxed);
+                        let charge = entry.charge.lock().unwrap().take();
+                        if e.code == "cancelled" && streamed > 0 {
+                            // #3：客户端取消但已交付正文 → 扣预扣额（否则「读完再取消」= 免费）。
+                            if let Some(mut c) = charge {
+                                c.commit();
+                            }
+                        } else if let Some(mut c) = charge {
+                            // worker 故障 / 取消且未交付 → 退款。
+                            c.refund().await;
+                        }
+                        let _ = entry.tx.send(StreamEvent::Error(msg));
+                    }
+                }
             }
-            let msg = if e.message.is_empty() { e.code.clone() } else { e.message.clone() };
-            st.route(&e.req_id, StreamEvent::Error(msg));
         });
     }
     // 即时状态上报（掉登录/限流/恢复）

@@ -43,10 +43,15 @@ impl Charge {
         self.done = true;
     }
     /// 失败：把预扣的额度退还。
+    /// P1#12：先置 done 再 await——否则 refund 的 DB 已提交、await 处 future 被 drop、done 还没翻，
+    /// Charge::Drop 会再退一次（用户白赚一份预扣）。先翻 done 把二次退款窄缝焊死。
     pub async fn refund(&mut self) {
-        if !self.done {
-            let _ = self.store.refund(&self.user_id, self.cost, &self.req_id).await;
-            self.done = true;
+        if self.done {
+            return;
+        }
+        self.done = true;
+        if let Err(e) = self.store.refund(&self.user_id, self.cost, &self.req_id).await {
+            tracing::error!(category = "billing", req_id = %self.req_id, user_id = %self.user_id, amount = self.cost, kind = "refund", error = %e, "失败退款失败，预扣未退回");
         }
     }
 }
@@ -64,7 +69,9 @@ impl Drop for Charge {
         let cost = self.cost;
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
-                let _ = store.refund(&user_id, cost, &req_id).await;
+                if let Err(e) = store.refund(&user_id, cost, &req_id).await {
+                    tracing::error!(category = "billing", req_id = %req_id, user_id = %user_id, amount = cost, kind = "refund", error = %e, "Drop 兜底退款失败，预扣未退回");
+                }
             });
         }
     }

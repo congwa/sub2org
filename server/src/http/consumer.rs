@@ -44,13 +44,17 @@ pub struct ChatMessage {
 }
 
 /// 请求结束时把 req_id 从 pending 表移除，并把会话钉定持久化。
-struct PendingGuard {
+/// 响应流结束时向 worker 发 cancel（中止仍在跑的生成、释放真实槽）。
+/// #1 关键：它**不再** remove_pending——结算/退款改由 gateway 的 worker 终止事件驱动，
+/// 独立于 HTTP 连接是否还在。否则客户端读完正文即断连 → future drop → 摘除 entry →
+/// Charge::Drop 全额退款 = 白嫖。entry 的清理交给 done/error/断连快速失败/reaper。
+struct CancelGuard {
     state: Arc<AppState>,
     req_id: String,
 }
-impl Drop for PendingGuard {
+impl Drop for CancelGuard {
     fn drop(&mut self) {
-        self.state.remove_pending(&self.req_id); // P1#6：同时清 worker_index
+        self.state.cancel_req(&self.req_id);
     }
 }
 
@@ -160,7 +164,7 @@ enum ResponseFormat {
 
 /// 共享中继核心（A1）：会话解析 → 调度/失败转移 → 计费预扣 → add_pending → Dispatch emit →
 /// SessionPin → 按 (format, stream) 派发到对应 responder。OpenAI 与 Anthropic 两个入口共用此函数，
-/// 杜绝中继不变量（PendingGuard / 快速失败 / 退款 / worker_index）在两条路径上漂移。
+/// 杜绝中继不变量（CancelGuard / 服务端侧结算 / 快速失败 / worker_index）在两条路径上漂移。
 #[allow(clippy::too_many_arguments)]
 async fn dispatch_and_relay(
     state: Arc<AppState>,
@@ -278,7 +282,10 @@ async fn dispatch_and_relay(
 
     // ---- 计费预扣（billing 关或 cost=0 时跳过）----
     let cost = if state.account.billing_enabled() {
-        state.account.cost_for(&model, 1.0) // B3：倍率（v1 per-key 恒 1.0）
+        let base = state.account.cost_for_model(&model); // 未乘倍率的基础价
+        let c = state.account.cost_for(&model, 1.0); // B3：倍率（v1 per-key 恒 1.0）
+        // #19：基础价>0 但全局/model 倍率四舍五入到 0 → floor 1，堵免费漏洞。
+        if base > 0 && c == 0 { 1 } else { c }
     } else {
         0
     };
@@ -303,7 +310,8 @@ async fn dispatch_and_relay(
 
     // P1#7：暂保持无界通道（改有界涉 socketioxide 事件乱序风险，详见 v0.6.2 注释）。
     let (tx, rx) = mpsc::unbounded_channel::<StreamEvent>();
-    state.add_pending(req_id.clone(), lease.worker_id.clone(), tx); // P1#6
+    // charge 移入 pending：结算/退款由 gateway 的 worker 事件驱动，独立于 HTTP 连接（治断连即免费 #1）。
+    state.add_pending(req_id.clone(), lease.worker_id.clone(), lease.sid, tx, charge); // P1#6
 
     let dispatch = Dispatch {
         req_id: req_id.clone(),
@@ -320,10 +328,7 @@ async fn dispatch_and_relay(
         None => false,
     };
     if !dispatched {
-        state.remove_pending(&req_id);
-        if let Some(mut c) = charge {
-            c.refund().await;
-        }
+        state.remove_pending(&req_id); // charge 随 entry drop 自动退款
         return err(StatusCode::BAD_GATEWAY, "failed to dispatch to worker");
     }
 
@@ -360,16 +365,16 @@ async fn dispatch_and_relay(
     let gen = Duration::from_secs(state.config.generation_secs);
     match (format, stream) {
         (ResponseFormat::OpenAI, true) => {
-            stream_response(state, lease, rx, req_id, model, gen, pin, session_id, charge, rate_guard, started, prompt_tokens)
+            stream_response(state, lease, rx, req_id, model, gen, pin, session_id, rate_guard, started, prompt_tokens)
         }
         (ResponseFormat::OpenAI, false) => {
-            json_response(state, lease, rx, req_id, model, gen, pin, session_id, charge, rate_guard, started, prompt_tokens).await
+            json_response(state, lease, rx, req_id, model, gen, pin, session_id, rate_guard, started, prompt_tokens).await
         }
         (ResponseFormat::Anthropic, true) => {
-            messages_stream_response(state, lease, rx, req_id, model, gen, pin, session_id, charge, rate_guard, started, prompt_tokens)
+            messages_stream_response(state, lease, rx, req_id, model, gen, pin, session_id, rate_guard, started, prompt_tokens)
         }
         (ResponseFormat::Anthropic, false) => {
-            messages_json_response(state, lease, rx, req_id, model, gen, pin, session_id, charge, rate_guard, started, prompt_tokens).await
+            messages_json_response(state, lease, rx, req_id, model, gen, pin, session_id, rate_guard, started, prompt_tokens).await
         }
     }
 }
@@ -384,7 +389,6 @@ fn stream_response(
     gen: Duration,
     pin: SessionPin,
     session_id: String,
-    charge: Option<Charge>,
     rate: RateGuard,
     started: Instant,
     prompt_tokens: u32,
@@ -394,10 +398,10 @@ fn stream_response(
     let s = async_stream::stream! {
         let _lease = lease; // 占用槽位直到流结束
         let _rate = rate;   // 占用并发名额直到流结束
-        let mut charge = charge;
         let mut got_content = false; // E3：是否真有内容流出（含 DOM 兜底的 chunk）
         let mut acc = String::new(); // A2：累计正文用于估算 completion_tokens
-        let _guard = PendingGuard { state: state.clone(), req_id: req_id.clone() };
+        // 计费不在此结算：charge 在 pending 里，由 gateway 的 done/error 驱动（治断连即免费 #1）。
+        let _guard = CancelGuard { state: state.clone(), req_id: req_id.clone() };
 
         yield Ok::<Event, Infallible>(Event::default().data(chunk_json(
             &id, &model, created, json!({"role": "assistant", "content": ""}), None, None,
@@ -414,9 +418,8 @@ fn stream_response(
                 }
                 Ok(Some(StreamEvent::Done { conversation_id, full })) => {
                     if !full.trim().is_empty() { got_content = true; if full.len() >= acc.len() { acc = full.clone(); } }
-                    // E3：零内容结束（解析漂移 + DOM 兜底失败）→ 退款 + 发 error 帧，不静默 stop。
+                    // E3：零内容结束（解析漂移 + DOM 兜底失败）→ 发 error 帧，不静默 stop（退款由 gateway 完成）。
                     if !got_content {
-                        if let Some(c) = &mut charge { c.refund().await; }
                         state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "empty_response".into() });
                         yield Ok(Event::default().data(
                             json!({"error": {"message": "worker returned empty response", "type": "empty_response"}}).to_string(),
@@ -424,7 +427,6 @@ fn stream_response(
                         break;
                     }
                     pin.persist(conversation_id).await;
-                    if let Some(c) = &mut charge { c.commit(); }
                     let completion_tokens = crate::billing::tokens::estimate_tokens(&acc); // A2
                     state.publish(LiveEvent::RequestDone {
                         req_id: id.clone(), status: "stop".into(),
@@ -442,7 +444,6 @@ fn stream_response(
                     break;
                 }
                 Ok(Some(StreamEvent::Error(e))) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "worker_error".into() });
                     yield Ok(Event::default().data(
                         json!({"error": {"message": e, "type": "worker_error"}}).to_string(),
@@ -450,7 +451,6 @@ fn stream_response(
                     break;
                 }
                 Ok(None) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "disconnected".into() });
                     // P0#1：与其它失败分支一致，先 yield error 帧再 [DONE]；
                     // 否则发送端被 drop（worker/中转断开）时客户端只见 [DONE] → 把截断当成功。
@@ -460,7 +460,6 @@ fn stream_response(
                     break;
                 }
                 Err(_) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "timeout".into() });
                     yield Ok(Event::default().data(
                         json!({"error": {"message": "generation timeout", "type": "timeout"}}).to_string(),
@@ -485,14 +484,14 @@ async fn json_response(
     gen: Duration,
     pin: SessionPin,
     session_id: String,
-    mut charge: Option<Charge>,
     rate: RateGuard,
     started: Instant,
     prompt_tokens: u32,
 ) -> Response {
     let _lease = lease;
     let _rate = rate;
-    let _guard = PendingGuard {
+    // 计费不在此结算：charge 在 pending 里，由 gateway 的 done/error 驱动（治断连即免费 #1）。
+    let _guard = CancelGuard {
         state: state.clone(),
         req_id: req_id.clone(),
     };
@@ -505,19 +504,13 @@ async fn json_response(
                 if !f.is_empty() {
                     full = f;
                 }
-                // E3：流正常结束但零内容（SSE 解析漂移 + DOM 兜底也失败）→ 显式失败 + 退款，
-                // 不再静默返回空 200（Cherry Studio 等客户端会显示空白）。
+                // E3：流正常结束但零内容（SSE 解析漂移 + DOM 兜底也失败）→ 显式失败，
+                // 不再静默返回空 200（退款由 gateway 完成）。
                 if full.trim().is_empty() {
-                    if let Some(c) = &mut charge {
-                        c.refund().await;
-                    }
                     state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "empty_response".into() });
                     return err(StatusCode::BAD_GATEWAY, "worker returned empty response");
                 }
                 pin.persist(conversation_id).await;
-                if let Some(c) = &mut charge {
-                    c.commit();
-                }
                 state.publish(LiveEvent::RequestDone {
                     req_id: req_id.clone(), status: "stop".into(),
                     tokens: Some(prompt_tokens.saturating_add(crate::billing::tokens::estimate_tokens(&full))),
@@ -526,24 +519,15 @@ async fn json_response(
                 break;
             }
             Ok(Some(StreamEvent::Error(e))) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "worker_error".into() });
                 return err(StatusCode::BAD_GATEWAY, &e);
             }
             Ok(None) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 // P0#1：发送端被 drop（worker/中转断开）→ 显式 502，不把已收的部分 full 当 200 返回。
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "disconnected".into() });
                 return err(StatusCode::BAD_GATEWAY, "worker disconnected");
             }
             Err(_) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "timeout".into() });
                 return err(StatusCode::GATEWAY_TIMEOUT, "generation timeout");
             }
@@ -1104,7 +1088,6 @@ fn messages_stream_response(
     gen: Duration,
     pin: SessionPin,
     session_id: String,
-    charge: Option<Charge>,
     rate: RateGuard,
     started: Instant,
     prompt_tokens: u32,
@@ -1113,10 +1096,10 @@ fn messages_stream_response(
     let s = async_stream::stream! {
         let _lease = lease;
         let _rate = rate;
-        let mut charge = charge;
         let mut got_content = false;
         let mut acc = String::new();
-        let _guard = PendingGuard { state: state.clone(), req_id: req_id.clone() };
+        // 计费不在此结算：charge 在 pending 里，由 gateway 的 done/error 驱动（治断连即免费 #1）。
+        let _guard = CancelGuard { state: state.clone(), req_id: req_id.clone() };
 
         yield Ok::<Event, Infallible>(Event::default().event("message_start").data(json!({
             "type": "message_start",
@@ -1140,7 +1123,6 @@ fn messages_stream_response(
                 Ok(Some(StreamEvent::Done { conversation_id, full })) => {
                     if !full.trim().is_empty() { got_content = true; if full.len() >= acc.len() { acc = full.clone(); } }
                     if !got_content {
-                        if let Some(c) = &mut charge { c.refund().await; }
                         state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "empty_response".into() });
                         yield Ok(Event::default().event("error").data(
                             json!({"type": "error", "error": {"type": "api_error", "message": "worker returned empty response"}}).to_string()
@@ -1148,7 +1130,6 @@ fn messages_stream_response(
                         break;
                     }
                     pin.persist(conversation_id).await;
-                    if let Some(c) = &mut charge { c.commit(); }
                     let output_tokens = crate::billing::tokens::estimate_tokens(&acc);
                     state.publish(LiveEvent::RequestDone {
                         req_id: id.clone(), status: "stop".into(),
@@ -1167,7 +1148,6 @@ fn messages_stream_response(
                     break;
                 }
                 Ok(Some(StreamEvent::Error(e))) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "worker_error".into() });
                     yield Ok(Event::default().event("error").data(
                         json!({"type": "error", "error": {"type": "api_error", "message": e}}).to_string()
@@ -1175,7 +1155,6 @@ fn messages_stream_response(
                     break;
                 }
                 Ok(None) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "disconnected".into() });
                     yield Ok(Event::default().event("error").data(
                         json!({"type": "error", "error": {"type": "api_error", "message": "worker disconnected"}}).to_string()
@@ -1183,7 +1162,6 @@ fn messages_stream_response(
                     break;
                 }
                 Err(_) => {
-                    if let Some(c) = &mut charge { c.refund().await; }
                     state.publish(LiveEvent::RequestError { req_id: id.clone(), code: "timeout".into() });
                     yield Ok(Event::default().event("error").data(
                         json!({"type": "error", "error": {"type": "overloaded_error", "message": "generation timeout"}}).to_string()
@@ -1208,14 +1186,14 @@ async fn messages_json_response(
     gen: Duration,
     pin: SessionPin,
     session_id: String,
-    mut charge: Option<Charge>,
     rate: RateGuard,
     started: Instant,
     prompt_tokens: u32,
 ) -> Response {
     let _lease = lease;
     let _rate = rate;
-    let _guard = PendingGuard { state: state.clone(), req_id: req_id.clone() };
+    // 计费不在此结算：charge 在 pending 里，由 gateway 的 done/error 驱动（治断连即免费 #1）。
+    let _guard = CancelGuard { state: state.clone(), req_id: req_id.clone() };
     let mut full = String::new();
     loop {
         match tokio::time::timeout(gen, rx.recv()).await {
@@ -1225,16 +1203,10 @@ async fn messages_json_response(
                     full = f;
                 }
                 if full.trim().is_empty() {
-                    if let Some(c) = &mut charge {
-                        c.refund().await;
-                    }
                     state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "empty_response".into() });
                     return err_anthropic(StatusCode::BAD_GATEWAY, "api_error", "worker returned empty response");
                 }
                 pin.persist(conversation_id).await;
-                if let Some(c) = &mut charge {
-                    c.commit();
-                }
                 let output_tokens = crate::billing::tokens::estimate_tokens(&full);
                 state.publish(LiveEvent::RequestDone {
                     req_id: req_id.clone(), status: "stop".into(),
@@ -1248,23 +1220,14 @@ async fn messages_json_response(
                     .into_response();
             }
             Ok(Some(StreamEvent::Error(e))) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "worker_error".into() });
                 return err_anthropic(StatusCode::BAD_GATEWAY, "api_error", &e);
             }
             Ok(None) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "disconnected".into() });
                 return err_anthropic(StatusCode::BAD_GATEWAY, "api_error", "worker disconnected");
             }
             Err(_) => {
-                if let Some(c) = &mut charge {
-                    c.refund().await;
-                }
                 state.publish(LiveEvent::RequestError { req_id: req_id.clone(), code: "timeout".into() });
                 return err_anthropic(StatusCode::GATEWAY_TIMEOUT, "overloaded_error", "generation timeout");
             }
