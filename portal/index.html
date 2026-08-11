@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Cong Wa · Open-source projects</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#09111f" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { ink: "#09111f", mint: "#7bf2c2" },
+            fontFamily: { mono: ["ui-monospace", "monospace"] },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        background: #09111f;
+      }
+      .grid {
+        background-image:
+          linear-gradient(#ffffff0a 1px, transparent 1px),
+          linear-gradient(90deg, #ffffff0a 1px, transparent 1px);
+        background-size: 46px 46px;
+      }
+      .aurora {
+        filter: blur(100px);
+      }
+      .grad {
+        background: linear-gradient(105deg, #fff, #8cf5ca 55%, #8cbcff);
+        -webkit-background-clip: text;
+        color: transparent;
+      }
+      .chart {
+        height: 190px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="overflow-x-hidden bg-ink font-sans text-slate-100">
+    <div
+      class="pointer-events-none absolute inset-x-0 top-0 h-[700px] overflow-hidden"
+    >
+      <div class="grid absolute inset-0"></div>
+      <i
+        class="aurora absolute -left-32 top-0 h-96 w-96 rounded-full bg-emerald-400/30"
+      ></i
+      ><i
+        class="aurora absolute right-0 top-10 h-80 w-80 rounded-full bg-blue-500/25"
+      ></i>
+    </div>
+    <header
+      class="relative mx-auto flex h-20 max-w-6xl items-center justify-between px-5"
+    >
+      <a class="font-mono text-lg font-bold" href="#top"
+        >congwa<span class="text-mint">.dev</span></a
+      >
+      <div class="flex gap-3">
+        <a
+          href="https://github.com/congwa"
+          target="_blank"
+          class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold"
+          >GitHub ↗</a
+        ><button
+          id="lang"
+          class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold"
+        >
+          EN
+        </button>
+      </div>
+    </header>
+    <main id="top" class="relative">
+      <section class="mx-auto max-w-6xl px-5 pb-24 pt-16 lg:pt-28">
+        <p class="hero mb-5 font-mono text-xs text-mint" data-t="eyebrow">
+          INDEPENDENT BUILDER · OPEN SOURCE
+        </p>
+        <h1
+          class="hero max-w-4xl text-5xl font-bold leading-[1.02] tracking-[-.07em] sm:text-7xl"
+          data-t="title"
+        >
+          用开源，把 AI、工具与想法<br /><span class="grad"
+            >变成可以真正使用的产品。</span
+          >
+        </h1>
+        <p
+          class="hero mt-7 max-w-2xl text-lg leading-8 text-slate-400"
+          data-t="lead"
+        >
+          我是 Cong Wa。这里收集我持续构建的开源项目：从
+          Agent、开发者工具到自动化与产品实验。按最近更新时间排列。
+        </p>
+        <div class="hero mt-8 flex gap-3">
+          <a
+            href="#projects"
+            class="rounded-xl bg-mint px-5 py-3 text-sm font-bold text-ink"
+            data-t="cta"
+            >浏览开源项目 ↓</a
+          ><a
+            href="https://github.com/congwa/congwa"
+            target="_blank"
+            class="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold"
+            data-t="profile"
+            >GitHub 主页</a
+          >
+        </div>
+      </section>
+      <section class="border-y border-slate-800 bg-slate-950/50">
+        <div
+          class="mx-auto grid max-w-6xl gap-8 px-5 py-12 md:grid-cols-[.75fr_1.25fr] md:items-center"
+        >
+          <div>
+            <p class="font-mono text-xs text-mint" data-t="chartEye">
+              BUILDING RHYTHM
+            </p>
+            <h2
+              class="mt-3 text-3xl font-bold tracking-[-.05em]"
+              data-t="chartTitle"
+            >
+              持续构建，公开迭代。
+            </h2>
+            <p class="mt-4 text-sm leading-7 text-slate-400" data-t="chartLead">
+              项目覆盖 AI
+              基础设施、智能体、开发工具与实际业务产品。每一次提交，都是下一次实验的起点。
+            </p>
+          </div>
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+            <div class="chart">
+              <canvas
+                id="chart"
+                role="img"
+                aria-label="Open source activity"
+              ></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="projects" class="mx-auto max-w-6xl px-5 py-24">
+        <div
+          class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+        >
+          <div>
+            <p class="font-mono text-xs text-mint" data-t="projectsEye">
+              OPEN SOURCE / RECENT FIRST
+            </p>
+            <h2
+              class="mt-3 text-3xl font-bold tracking-[-.05em]"
+              data-t="projectsTitle"
+            >
+              最近更新的项目
+            </h2>
+          </div>
+          <p class="text-sm text-slate-500" data-t="sort">
+            按 GitHub 最近更新时间倒序
+          </p>
+        </div>
+        <div id="list" class="mt-10 grid gap-3"></div>
+      </section>
+      <section class="border-t border-slate-800 py-20 text-center">
+        <p class="text-sm text-mint" data-t="endEye">
+          EVERY PROJECT STARTS WITH CURIOSITY
+        </p>
+        <h2 class="mt-3 text-4xl font-bold tracking-[-.06em]" data-t="end">
+          在 GitHub 上查看全部作品。
+        </h2>
+        <a
+          href="https://github.com/congwa"
+          target="_blank"
+          class="mt-7 inline-block rounded-xl bg-mint px-5 py-3 text-sm font-bold text-ink"
+          >github.com/congwa ↗</a
+        >
+      </section>
+    </main>
+    <footer
+      class="border-t border-slate-800 py-7 text-center text-xs text-slate-500"
+    >
+      © Cong Wa · <span data-t="foot">独立构建，公开分享。</span>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script>
+      const repos = [
+        [
+          "sub2claude",
+          "Claude Code subscription pool API gateway",
+          "Rust",
+          "2026-07-28",
+          "https://github.com/congwa/sub2claude",
+        ],
+        [
+          "ai-checker",
+          "AI purity monitoring",
+          "TypeScript",
+          "2026-07-27",
+          "https://github.com/congwa/ai-checker",
+        ],
+        [
+          "mobile-agent",
+          "Mobile AI automation testing platform",
+          "Python",
+          "2026-07-27",
+          "https://github.com/congwa/mobile-agent",
+        ],
+        [
+          "embedease-ai",
+          "AI customer service and conversion system",
+          "Python",
+          "2026-07-24",
+          "https://github.com/congwa/embedease-ai",
+        ],
+        [
+          "codex-autoresearch",
+          "Persistent Codex research runner",
+          "TypeScript",
+          "2026-07-21",
+          "https://github.com/congwa/codex-autoresearch",
+        ],
+        [
+          "orderSystem",
+          "WeChat mini-program ordering system",
+          "JavaScript",
+          "2026-07-20",
+          "https://github.com/congwa/orderSystem",
+        ],
+        [
+          "skill-manager",
+          "Cross-platform AI coding skill manager",
+          "TypeScript",
+          "2026-07-19",
+          "https://github.com/congwa/skill-manager",
+        ],
+        [
+          "sub2org",
+          "ChatGPT web session relay service",
+          "Rust",
+          "2026-07-13",
+          "https://github.com/congwa/sub2org",
+        ],
+        [
+          "Skill-Know",
+          "Agent Skills knowledge retrieval",
+          "Python",
+          "2026-07-15",
+          "https://github.com/congwa/Skill-Know",
+        ],
+        [
+          "wechat-translate",
+          "Learn English with WeChat",
+          "Rust",
+          "2026-06-26",
+          "https://github.com/congwa/wechat-translate",
+        ],
+        [
+          "deer-flow",
+          "Long-horizon SuperAgent harness",
+          "Python",
+          "2026-06-24",
+          "https://github.com/congwa/deer-flow",
+        ],
+        [
+          "openai-api-demos",
+          "OpenAI API feature demonstrations",
+          "Python",
+          "2026-06-12",
+          "https://github.com/congwa/openai-api-demos",
+        ],
+      ];
+      const zh = {
+        eyebrow: "独立构建者 · 开源",
+        title:
+          '用开源，把 AI、工具与想法<br><span class="grad">变成可以真正使用的产品。</span>',
+        lead: "我是 Cong Wa。这里收集我持续构建的开源项目：从 Agent、开发者工具到自动化与产品实验。按最近更新时间排列。",
+        cta: "浏览开源项目 ↓",
+        profile: "GitHub 主页",
+        chartEye: "构建节奏",
+        chartTitle: "持续构建，公开迭代。",
+        chartLead:
+          "项目覆盖 AI 基础设施、智能体、开发工具与实际业务产品。每一次提交，都是下一次实验的起点。",
+        projectsEye: "开源项目 / 最近优先",
+        projectsTitle: "最近更新的项目",
+        sort: "按 GitHub 最近更新时间倒序",
+        endEye: "每一个项目，都从好奇开始",
+        end: "在 GitHub 上查看全部作品。",
+        foot: "独立构建，公开分享。",
+      };
+      const en = {
+        eyebrow: "INDEPENDENT BUILDER · OPEN SOURCE",
+        title:
+          'Turn AI, tools, and ideas<br>into <span class="grad">products people can actually use.</span>',
+        lead: "I am Cong Wa. This is a living collection of open-source work—from agents and developer tools to automation and product experiments. Projects are ordered by their latest GitHub update.",
+        cta: "Explore projects ↓",
+        profile: "GitHub profile",
+        chartEye: "BUILDING RHYTHM",
+        chartTitle: "Keep building. Iterate in public.",
+        chartLead:
+          "The work spans AI infrastructure, agents, developer tools, and real product experiments. Every commit is a beginning for the next one.",
+        projectsEye: "OPEN SOURCE / RECENT FIRST",
+        projectsTitle: "Recently updated projects",
+        sort: "Newest GitHub updates first",
+        endEye: "EVERY PROJECT STARTS WITH CURIOSITY",
+        end: "See all work on GitHub.",
+        foot: "Building independently. Sharing openly.",
+      };
+      let l = "zh",
+        ch;
+      const cnDescriptions = [
+        "Claude Code 订阅池 API 网关",
+        "AI 纯净度监测工具",
+        "移动端 AI 自动化测试平台",
+        "开箱即用的 AI 智能客服与转化系统",
+        "让 Codex 长任务持续运行的研究执行器",
+        "仿美团与大众点评的微信点餐小程序",
+        "跨平台 AI 编码工具 Skill 统一管理器",
+        "ChatGPT 网页会话中转转发服务",
+        "基于 Agent Skills 的知识库检索方案",
+        "在微信生活场景中学习英语",
+        "支持研究、编码与创作的长程 SuperAgent 框架",
+        "OpenAI API 功能与最佳实践演示项目",
+      ];
+      function render() {
+        let d = l === "zh" ? zh : en;
+        document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
+        document
+          .querySelectorAll("[data-t]")
+          .forEach((e) => (e.innerHTML = d[e.dataset.t]));
+        document.getElementById("lang").textContent =
+          l === "zh" ? "EN" : "中文";
+        document.getElementById("list").innerHTML = repos
+          .map(
+            (r, i) =>
+              `<a class="project group grid gap-3 rounded-xl border border-slate-800 bg-slate-900/45 p-5 transition hover:border-mint/45 hover:bg-slate-900 md:grid-cols-[44px_1fr_auto] md:items-center" href="${r[4]}" target="_blank"><span class="font-mono text-xs text-slate-500">${String(i + 1).padStart(2, "0")}</span><span><b class="text-lg group-hover:text-mint">${r[0]}</b><small class="mt-1 block text-sm text-slate-400">${l === "zh" ? cnDescriptions[i] : r[1]}</small></span><span class="font-mono text-xs text-slate-500">${r[2]} · ${r[3]} ↗</span></a>`,
+          )
+          .join("");
+        draw();
+      }
+      function draw() {
+        if (ch) ch.destroy();
+        ch = new Chart(document.getElementById("chart"), {
+          type: "line",
+          data: {
+            labels: ["Feb", "Mar", "Apr", "May", "Jun", "Jul"],
+            datasets: [
+              {
+                data: [9, 16, 27, 18, 32, 45],
+                borderColor: "#7bf2c2",
+                backgroundColor: "#7bf2c230",
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2.5,
+                pointRadius: 3,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: "#64748b" } },
+              y: { grid: { color: "#ffffff12" }, ticks: { color: "#64748b" } },
+            },
+          },
+        });
+      }
+      document.getElementById("lang").onclick = () => {
+        l = l === "zh" ? "en" : "zh";
+        render();
+      };
+      render();
+      gsap.matchMedia().add("(prefers-reduced-motion: no-preference)", () => {
+        gsap
+          .timeline({ defaults: { ease: "power3.out" } })
+          .from(".hero", { y: 24, autoAlpha: 0, stagger: 0.1, duration: 0.6 })
+          .from(
+            ".project",
+            { y: 15, autoAlpha: 0, stagger: 0.04, duration: 0.35 },
+            "-.1",
+          );
+      });
+    </script>
+  </body>
+</html>
