@@ -96,7 +96,7 @@
           data-t="lead"
         >
           我是 Cong Wa。这里收集我持续构建的开源项目：从
-          Agent、开发者工具到自动化与产品实验。按最近更新时间排列。
+          Agent、开发者工具到自动化与产品实验。
         </p>
         <div class="hero mt-8 flex gap-3">
           <a
@@ -155,11 +155,11 @@
               class="mt-3 text-3xl font-bold tracking-[-.05em]"
               data-t="projectsTitle"
             >
-              最近更新的项目
+              精选开源项目
             </h2>
           </div>
           <p class="text-sm text-slate-500" data-t="sort">
-            按 GitHub 最近更新时间倒序
+            日期为项目更新记录
           </p>
         </div>
         <div id="list" class="mt-10 grid gap-3"></div>
@@ -188,6 +188,13 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script>
       const repos = [
+        [
+          "Agents Anywhere",
+          "Core developer · Open-source cross-device Agent workspace",
+          "TypeScript",
+          "2026-11-02",
+          "https://github.com/anywhere-labs/Agents-Anywhere",
+        ],
         [
           "sub2claude",
           "Claude Code subscription pool API gateway",
@@ -277,16 +284,16 @@
         eyebrow: "独立构建者 · 开源",
         title:
           '用开源，把 AI、工具与想法<br><span class="grad">变成可以真正使用的产品。</span>',
-        lead: "我是 Cong Wa。这里收集我持续构建的开源项目：从 Agent、开发者工具到自动化与产品实验。按最近更新时间排列。",
+        lead: "我是 Cong Wa。这里收集我参与构建的开源项目：从 Agent、开发者工具到自动化与产品实验。",
         cta: "浏览开源项目 ↓",
         profile: "GitHub 主页",
         chartEye: "构建节奏",
         chartTitle: "持续构建，公开迭代。",
         chartLead:
           "项目覆盖 AI 基础设施、智能体、开发工具与实际业务产品。每一次提交，都是下一次实验的起点。",
-        projectsEye: "开源项目 / 最近优先",
-        projectsTitle: "最近更新的项目",
-        sort: "按 GitHub 最近更新时间倒序",
+        projectsEye: "开源项目 / 精选",
+        projectsTitle: "精选开源项目",
+        sort: "日期为项目更新记录",
         endEye: "每一个项目，都从好奇开始",
         end: "在 GitHub 上查看全部作品。",
         foot: "独立构建，公开分享。",
@@ -295,16 +302,16 @@
         eyebrow: "INDEPENDENT BUILDER · OPEN SOURCE",
         title:
           'Turn AI, tools, and ideas<br>into <span class="grad">products people can actually use.</span>',
-        lead: "I am Cong Wa. This is a living collection of open-source work—from agents and developer tools to automation and product experiments. Projects are ordered by their latest GitHub update.",
+        lead: "I am Cong Wa. This is a collection of open-source work I contribute to—from agents and developer tools to automation and product experiments.",
         cta: "Explore projects ↓",
         profile: "GitHub profile",
         chartEye: "BUILDING RHYTHM",
         chartTitle: "Keep building. Iterate in public.",
         chartLead:
           "The work spans AI infrastructure, agents, developer tools, and real product experiments. Every commit is a beginning for the next one.",
-        projectsEye: "OPEN SOURCE / RECENT FIRST",
-        projectsTitle: "Recently updated projects",
-        sort: "Newest GitHub updates first",
+        projectsEye: "OPEN SOURCE / SELECTED",
+        projectsTitle: "Selected open-source projects",
+        sort: "Dates reflect recorded project updates",
         endEye: "EVERY PROJECT STARTS WITH CURIOSITY",
         end: "See all work on GitHub.",
         foot: "Building independently. Sharing openly.",
@@ -312,6 +319,7 @@
       let l = "zh",
         ch;
       const cnDescriptions = [
+        "核心开发者 · 跨设备的开源 Agent 工作台",
         "Claude Code 订阅池 API 网关",
         "AI 纯净度监测工具",
         "移动端 AI 自动化测试平台",
